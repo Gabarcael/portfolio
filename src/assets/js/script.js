@@ -2,7 +2,6 @@ const customCursor = document.createElement('div');
 customCursor.className = 'custom-cursor';
 document.body.appendChild(customCursor);
 
-const header = document.querySelector('header');
 const hero = document.querySelector('.site-hero');
 const sections = document.querySelectorAll('section');
 const navLinks = document.querySelectorAll('nav a');
@@ -247,8 +246,23 @@ function closePreview(delay = 150) {
 }
 
 function setupImagePreview() {
-    const images = document.querySelectorAll('img');
+    // On cible toutes les images mais on exclut explicitement :
+    // - celles ayant l'attribut data-no-preview
+    // - celles avec la classe .no-preview ou .portrait-photo
+    // De plus, on exclut par nom de fichier les images `pp.jpg` et `portrait.png`.
+    const images = Array.from(document.querySelectorAll('img'));
     images.forEach(imgEl => {
+        // skip explicit exclusion via attribute/class
+        if (imgEl.hasAttribute('data-no-preview') || imgEl.classList.contains('no-preview') || imgEl.classList.contains('portrait-photo')) {
+            return;
+        }
+        // skip by filename (gère les chemins relatifs)
+        const src = imgEl.getAttribute('src') || '';
+        const filename = src.split('/').pop().toLowerCase();
+        if (filename === 'pp.jpg' || filename === 'portrait.png' || filename === 'pp.png') {
+            return;
+        }
+
         imgEl.addEventListener('mouseenter', () => openPreview(imgEl));
         imgEl.addEventListener('mouseleave', () => closePreview());
         imgEl.addEventListener('touchstart', () => openPreview(imgEl));
