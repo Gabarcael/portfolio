@@ -6,7 +6,7 @@
     'use strict';
 
     /* ========================================
-       1. HEADER – auto-hide au scroll
+       1. HEADER – auto-hide au scroll + progress bar
        ======================================== */
     const Header = {
         el: null,
@@ -14,13 +14,18 @@
         init() {
             this.el = document.querySelector('.site-header');
             if (!this.el) return;
-            window.addEventListener('scroll', () => this.onScroll(), { passive: true });
+            window.addEventListener('scroll', () => this.onScroll(), {passive: true});
         },
         onScroll() {
             const y = window.scrollY;
-            if (y > this.lastY && y > 80)  this.el.classList.add('is-hidden');
-            else                            this.el.classList.remove('is-hidden');
+            if (y > this.lastY && y > 80) this.el.classList.add('is-hidden');
+            else this.el.classList.remove('is-hidden');
             this.lastY = y;
+
+            // Scroll progress
+            const max = document.documentElement.scrollHeight - window.innerHeight;
+            const progress = max > 0 ? y / max : 0;
+            this.el.style.setProperty('--scroll-progress', progress.toFixed(4));
         }
     };
 
@@ -30,7 +35,7 @@
     const MobileNav = {
         init() {
             const toggle = document.querySelector('.nav-toggle');
-            const nav    = document.querySelector('.main-nav');
+            const nav = document.querySelector('.main-nav');
             if (!toggle || !nav) return;
             toggle.addEventListener('click', () => {
                 nav.classList.toggle('is-open');
@@ -47,24 +52,42 @@
        ======================================== */
     const Reveal = {
         init() {
-            const targets = document.querySelectorAll('section, .project-card, .timeline-card, .hero');
-            if (!targets.length) return;
-
             const io = new IntersectionObserver((entries) => {
-                entries.forEach((entry, i) => {
+                entries.forEach(entry => {
                     if (entry.isIntersecting) {
-                        // Délai en cascade
-                        entry.target.style.transitionDelay = `${i * 0.06}s`;
                         entry.target.classList.add('is-visible');
                         io.unobserve(entry.target);
                     }
                 });
-            }, { threshold: 0.1 });
+            }, {threshold: 0.08});
 
-            targets.forEach(el => {
+            // Sections : reveal classique (up)
+            document.querySelectorAll('section').forEach((el, i) => {
                 el.classList.add('reveal');
+                el.style.transitionDelay = `${i * 0.05}s`;
                 io.observe(el);
             });
+
+            // Project cards : alternance gauche / droite
+            document.querySelectorAll('.project-card').forEach((el, i) => {
+                el.classList.add(i % 2 === 0 ? 'reveal-left' : 'reveal-right');
+                el.style.transitionDelay = `${0.1 + i * 0.08}s`;
+                io.observe(el);
+            });
+
+            // Timeline cards : slide depuis la gauche
+            document.querySelectorAll('.timeline-card').forEach((el, i) => {
+                el.classList.add('reveal-left');
+                el.style.transitionDelay = `${0.1 + i * 0.1}s`;
+                io.observe(el);
+            });
+
+            // Hero : scale
+            const hero = document.querySelector('.hero');
+            if (hero) {
+                hero.classList.add('reveal-scale');
+                io.observe(hero);
+            }
         }
     };
 
@@ -101,7 +124,10 @@
             document.body.appendChild(this.overlay);
 
             // Fermeture
-            this.closeBtn.addEventListener('click', (e) => { e.stopPropagation(); this.close(); });
+            this.closeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.close();
+            });
             this.overlay.addEventListener('click', (e) => {
                 if (e.target === this.overlay) this.close();
             });
@@ -173,7 +199,9 @@
                 this.img.style.transform = 'scale(1)';
                 this.hint.textContent = `${this.currentIdx + 1}/${this.images.length} · ← → naviguer · Échap fermer`;
                 // Remettre la transition par défaut après le swap
-                setTimeout(() => { this.img.style.transition = ''; }, 200);
+                setTimeout(() => {
+                    this.img.style.transition = '';
+                }, 200);
             }, 160);
         }
     };
@@ -207,7 +235,7 @@
                 if (href.startsWith('#')) {
                     e.preventDefault();
                     const el = document.getElementById(href.substring(1));
-                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    if (el) el.scrollIntoView({behavior: 'smooth'});
                     return;
                 }
 
@@ -254,9 +282,9 @@
                 document.body.appendChild(this.btn);
             }
 
-            window.addEventListener('scroll', () => this.toggle(), { passive: true });
+            window.addEventListener('scroll', () => this.toggle(), {passive: true});
             this.btn.addEventListener('click', () => {
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+                window.scrollTo({top: 0, behavior: 'smooth'});
             });
         },
         toggle() {
@@ -300,7 +328,7 @@
                 if (!found && window.scrollY < 100) {
                     document.querySelectorAll('.main-nav a').forEach(a => a.classList.remove('active'));
                 }
-            }, { passive: true });
+            }, {passive: true});
         }
     };
 
@@ -315,6 +343,95 @@
         Transitions.init();
         BackToTop.init();
         NavActive.init();
+        HeroTextReveal.init();
+        CardTilt.init();
+        SectionGlow.init();
+        MagneticButtons.init();
+    };
+
+    /* ========================================
+       8. HERO TEXT REVEAL — mot par mot
+       ======================================== */
+    const HeroTextReveal = {
+        init() {
+            const h1 = document.querySelector('.hero h1');
+            if (!h1) return;
+            const text = h1.textContent.trim();
+            h1.innerHTML = '';
+            text.split(/\s+/).forEach((word, i) => {
+                const span = document.createElement('span');
+                span.className = 'word';
+                span.textContent = word;
+                span.style.animationDelay = `${0.15 + i * 0.12}s`;
+                h1.appendChild(span);
+                // Espace entre les mots
+                h1.appendChild(document.createTextNode('\u00A0'));
+            });
+        }
+    };
+
+    /* ========================================
+       9. CARD TILT 3D — mousemove
+       ======================================== */
+    const CardTilt = {
+        init() {
+            document.querySelectorAll('.project-card').forEach(card => {
+                card.addEventListener('mousemove', (e) => {
+                    const rect = card.getBoundingClientRect();
+                    const x = (e.clientX - rect.left) / rect.width;
+                    const y = (e.clientY - rect.top) / rect.height;
+                    const rx = (y - 0.5) * -10; // rotation X
+                    const ry = (x - 0.5) * 10;  // rotation Y
+                    card.style.setProperty('--rx', `${rx}deg`);
+                    card.style.setProperty('--ry', `${ry}deg`);
+                });
+                card.addEventListener('mouseleave', () => {
+                    card.style.setProperty('--rx', '0deg');
+                    card.style.setProperty('--ry', '0deg');
+                });
+            });
+        }
+    };
+
+    /* ========================================
+       10. SECTION GLOW — reflet lumineux qui
+           suit la souris dans les sections
+       ======================================== */
+    const SectionGlow = {
+        init() {
+            document.querySelectorAll('section').forEach(section => {
+                section.addEventListener('mousemove', (e) => {
+                    const rect = section.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    section.style.setProperty('--mouse-x', `${x}px`);
+                    section.style.setProperty('--mouse-y', `${y}px`);
+                });
+            });
+        }
+    };
+
+    /* ========================================
+       11. MAGNETIC BUTTONS — les boutons
+           s'attirent vers le curseur
+       ======================================== */
+    const MagneticButtons = {
+        strength: 0.3,
+        init() {
+            document.querySelectorAll('.card-link, .back-to-top').forEach(btn => {
+                btn.addEventListener('mousemove', (e) => {
+                    const rect = btn.getBoundingClientRect();
+                    const cx = rect.left + rect.width / 2;
+                    const cy = rect.top + rect.height / 2;
+                    const dx = (e.clientX - cx) * this.strength;
+                    const dy = (e.clientY - cy) * this.strength;
+                    btn.style.transform = `translate(${dx}px, ${dy}px)`;
+                });
+                btn.addEventListener('mouseleave', () => {
+                    btn.style.transform = '';
+                });
+            });
+        }
     };
 
     if (document.readyState === 'loading')
